@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye Tracking Test</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, sans-serif;
+            background: #0f0f1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+            gap: 1rem;
+        }
+        h1 { font-size: 1.5rem; color: #aaa; }
+
+        #status {
+            font-size: 2.5rem;
+            font-weight: 900;
+            padding: 1.2rem 3rem;
+            border-radius: 16px;
+            transition: background 0.2s, box-shadow 0.2s;
+            min-width: 400px;
+            text-align: center;
+        }
+        .st-idle    { background: #333; color: #aaa; }
+        .st-cal     { background: #1e40af; color: white; animation: calPulse 1s ease-in-out infinite; }
+        .st-up      { background: #16a34a; color: white; box-shadow: 0 0 40px rgba(22,163,74,0.5); }
+        .st-down    { background: #dc2626; color: white; box-shadow: 0 0 40px rgba(220,38,38,0.6); animation: downPulse 0.4s ease-in-out infinite; }
+        .st-noface  { background: #555; color: #ccc; }
+
+        @keyframes calPulse  { 0%,100%{opacity:1} 50%{opacity:0.7} }
+        @keyframes downPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+
+        #cam-wrap { position: relative; }
+        #webcam {
+            width: 560px;
+            max-width: 92vw;
+            height: auto;
+            border-radius: 14px;
+            border: 3px solid #333;
+            display: block;
+        }
+        #overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: 14px;
+        }
+
+        #debug {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4e;
+            border-radius: 10px;
+            padding: 1rem 1.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.3rem 2rem;
+            min-width: 480px;
+        }
+        .dl { color: #64748b; }
+        .dv { color: #fbbf24; font-weight: 700; }
+        .dv.ok { color: #4ade80; }
+        .dv.warn { color: #f87171; }
+
+        #btn-start {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0.9rem 3rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #btn-start:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(59,130,246,0.4); }
+        #btn-start:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        #log { color: #666; font-size: 0.85rem; margin-top: -0.5rem; }
+    </style>
+</head>
+<body>
+<h1>👁️ Eye Tracking ML Test</h1>
+
+<div id="status" class="st-idle">Click Start to begin</div>
+
+<div id="cam-wrap">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="overlay"></canvas>
+</div>
+
+<div id="debug">
+    <span class="dl">Iris (avg)</span>       <span class="dv" id="dv-iris">—</span>
+    <span class="dl">Baseline iris</span>    <span class="dv" id="dv-biris">—</span>
+    <span class="dl">Iris delta</span>       <span class="dv" id="dv-idelta">—</span>
+    <span class="dl">Head pitch</span>       <span class="dv" id="dv-head">—</span>
+    <span class="dl">Baseline head</span>    <span class="dv" id="dv-bhead">—</span>
+    <span class="dl">Head delta</span>       <span class="dv" id="dv-hdelta">—</span>
+    <span class="dl">EAR (avg)</span>        <span class="dv" id="dv-ear">—</span>
+    <span class="dl">Baseline EAR</span>     <span class="dv" id="dv-bear">—</span>
+    <span class="dl">EAR delta</span>        <span class="dv" id="dv-edelta">—</span>
+    <span class="dl">Decision</span>         <span class="dv" id="dv-dec">—</span>
+</div>
+
+<button id="btn-start">🎮 Start Test</button>
+<div id="log">Calibrates automatically when you start — just look at the screen for 3 seconds.</div>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script>
+var $status = document.getElementById('status');
+var $webcam = document.getElementById('webcam');
+var $overlay = document.getElementById('overlay');
+var $log = document.getElementById('log');
+var $btn = document.getElementById('btn-start');
+var ctx = $overlay.getContext('2d');
+
+// Debug spans
+var $iris   = document.getElementById('dv-iris');
+var $bIris  = document.getElementById('dv-birus');  
+var $iDelta = document.getElementById('dv-idelta');
+var $head   = document.getElementById('dv-head');
+var $bHead  = document.getElementById('dv-bhead');
+var $hDelta = document.getElementById('dv-hdelta');
+var $ear    = document.getElementById('dv-ear');
+var $bEAR   = document.getElementById('dv-bear');
+var $eDelta = document.getElementById('dv-edelta');
+var $dec    = document.getElementById('dv-dec');
+var $dvBIris = document.getElementById('dv-birus') || document.getElementById('dv-biris');
+
+// CONFIG
+var CAL_MS    = 3000;
+var SMOOTH    = 8;      // frames to smooth over
+var IRIS_THR  = 0.045;  // iris delta to trigger
+var HEAD_THR  = 0.035;  // head delta to trigger
+var EAR_THR   = 0.025;  // EAR delta to trigger
+
+// STATE
+var calibrating = false;
+var calStart = 0;
+var calSamples = [];
+var bIris = null, bHead = null, bEAR = null;
+var iBuf = [], hBuf = [], eBuf = [];
+
+$btn.addEventListener('click', startTest);
+
+async function startTest() {
+    $btn.disabled = true;
+    $log.textContent = 'Starting camera...';
+    $status.className = 'st-idle';
+    $status.textContent = 'Starting camera...';
+
+    try {
+        var stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480, facingMode: 'user' }
+        });
+        $webcam.srcObject = stream;
+        await $webcam.play();
+        $log.textContent = 'Loading ML face model...';
+
+        var fm = new FaceMesh({
+            locateFile: function(f) {
+                return 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/' + f;
+            }
+        });
+        fm.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        fm.onResults(onFace);
+
+        var cam = new Camera($webcam, {
+            onFrame: async function() { await fm.send({ image: $webcam }); },
+            width: 640, height: 480
+        });
+        await cam.start();
+
+        // Sync canvas size
+        $overlay.width = $webcam.videoWidth || 640;
+        $overlay.height = $webcam.videoHeight || 480;
+        // Make canvas display same size as video
+        $overlay.style.width = $webcam.clientWidth + 'px';
+        $overlay.style.height = $webcam.clientHeight + 'px';
+
+        // Start calibration
+        calibrating = true;
+        calStart = Date.now();
+        calSamples = [];
+        bIris = null; bHead = null; bEAR = null;
+        iBuf = []; hBuf = []; eBuf = [];
+
+        $status.className = 'st-cal';
+        $status.textContent = '👀 Look at screen... 3s';
+        $log.textContent = 'Recording your baseline. Keep looking at the screen!';
+
+    } catch(e) {
+        $btn.disabled = false;
+        $log.textContent = '❌ Error: ' + e.message;
+        $status.textContent = 'Error!';
+        console.error(e);
+    }
+}
+
+function onFace(results) {
+    ctx.clearRect(0, 0, $overlay.width, $overlay.height);
+
+    if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+        if (!calibrating && bIris !== null) {
+            $status.className = 'st-noface';
+            $status.textContent = '😶 No Face Detected';
+        }
+        return;
+    }
+
+    var lm = results.multiFaceLandmarks[0];
+    var W = $overlay.width;
+    var H = $overlay.height;
+
+    // Draw tiny dots on key landmarks (1px, barely visible)
+    drawDot(lm[159], W, H, '#00ff88');  // left eye top
+    drawDot(lm[145], W, H, '#00ff88');  // left eye bottom
+    drawDot(lm[468], W, H, '#ff4444');  // left iris
+    drawDot(lm[386], W, H, '#00ccff');  // right eye top
+    drawDot(lm[374], W, H, '#00ccff');  // right eye bottom
+    drawDot(lm[473], W, H, '#ff4444');  // right iris
+
+    // ---- SIGNAL 1: Iris Y position ----
+    var lH = lm[145].y - lm[159].y;
+    var lR = lH > 0.001 ? (lm[468].y - lm[159].y) / lH : 0.5;
+    var rH = lm[374].y - lm[386].y;
+    var rR = rH > 0.001 ? (lm[473].y - lm[386].y) / rH : 0.5;
+    var rawIris = (lR + rR) / 2;
+
+    // ---- SIGNAL 2: Head pitch (nose Y in face) ----
+    var fH = lm[152].y - lm[10].y;
+    var rawHead = fH > 0.001 ? (lm[4].y - lm[10].y) / fH : 0.5;
+
+    // ---- SIGNAL 3: Eye Aspect Ratio (eyelid squeeze) ----
+    var rawEAR = (calcEAR(lm, 33,133,160,158,144,153) + calcEAR(lm, 362,263,385,387,380,373)) / 2;
+
+    // Smooth
+    push(iBuf, rawIris, SMOOTH);
+    push(hBuf, rawHead, SMOOTH);
+    push(eBuf, rawEAR,  SMOOTH);
+    var sIris = mean(iBuf);
+    var sHead = mean(hBuf);
+    var sEAR  = mean(eBuf);
+
+    // --- CALIBRATION ---
+    if (calibrating) {
+        calSamples.push({ iris: sIris, head: sHead, ear: sEAR });
+        var elapsed = Date.now() - calStart;
+        var rem = Math.max(0, Math.ceil((CAL_MS - elapsed) / 1000));
+        $status.textContent = '👀 Look at screen... ' + rem + 's';
+
+        if (elapsed >= CAL_MS) {
+            // Finish calibration
+            calibrating = false;
+            bIris = mean(calSamples.map(function(s){ return s.iris; }));
+            bHead = mean(calSamples.map(function(s){ return s.head; }));
+            bEAR  = mean(calSamples.map(function(s){ return s.ear;  }));
+            console.log('Calibrated! iris:', bIris.toFixed(3), 'head:', bHead.toFixed(3), 'EAR:', bEAR.toFixed(3));
+            $log.textContent = '✅ Calibrated! Now look up and down to test detection.';
+        }
+        return;
+    }
+
+    // --- DETECTION (delta from baseline) ---
+    var iDelta = sIris - bIris;    // +ve = iris dropped (looking down)
+    var hDelta = bHead - sHead;    // +ve = head tilted down
+    var eDelta = bEAR  - sEAR;     // +ve = eyes more closed (looking down)
+
+    var irisDown = iDelta > IRIS_THR;
+    var headDown = hDelta > HEAD_THR;
+    var earDown  = eDelta > EAR_THR;
+
+    // Need at least 1 strong iris signal OR 2 of the 3 signals
+    var lookingDown = irisDown || (headDown && earDown);
+
+    // Update debug
+    upd('dv-iris',   sIris.toFixed(3));
+    upd('dv-bris',   bIris !== null ? bIris.toFixed(3) : '—');
+    upd('dv-birus',  bIris !== null ? bIris.toFixed(3) : '—');
+    // use getElementById directly to be safe
+    var elBIris = document.getElementById('dv-bris') || document.getElementById('dv-birus') || document.getElementById('dv-biri');
+    document.getElementById('dv-iris').textContent   = sIris.toFixed(3);
+    document.getElementById('dv-biri') && (document.getElementById('dv-biri').textContent = bIris.toFixed(3));
+    document.getElementById('dv-idelta').textContent = fmt(iDelta, irisDown);
+    document.getElementById('dv-head').textContent   = sHead.toFixed(3);
+    document.getElementById('dv-hdelta').textContent = fmt(hDelta, headDown);
+    document.getElementById('dv-ear').textContent    = sEAR.toFixed(3);
+    document.getElementById('dv-edelta').textContent = fmt(eDelta, earDown);
+    document.getElementById('dv-dec').textContent    =
+        (irisDown?'IRIS ':'') + (headDown?'HEAD ':'') + (earDown?'EAR':'') || 'none';
+
+    if (bIris !== null) {
+        document.getElementById('dv-bris') && (document.getElementById('dv-bris').textContent = bIris.toFixed(3));
+        document.getElementById('dv-bhead').textContent = bHead.toFixed(3);
+        document.getElementById('dv-bear').textContent  = bEAR.toFixed(3);
+    }
+
+    if (lookingDown) {
+        $status.className = 'st-down';
+        $status.textContent = '👇 LOOKING DOWN';
+    } else {
+        $status.className = 'st-up';
+        $status.textContent = '👀 LOOKING AT SCREEN';
+    }
+}
+
+// ---- HELPERS ----
+function calcEAR(lm, c1, c2, u1, u2, l1, l2) {
+    var v1 = dist(lm[u1], lm[l1]);
+    var v2 = dist(lm[u2], lm[l2]);
+    var h  = dist(lm[c1], lm[c2]);
+    return h < 0.001 ? 0.3 : (v1 + v2) / (2 * h);
+}
+function dist(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx*dx + dy*dy);
+}
+function push(buf, val, max) {
+    buf.push(val);
+    if (buf.length > max) buf.shift();
+}
+function mean(arr) {
+    if (!arr.length) return 0;
+    var s = 0;
+    for (var i = 0; i < arr.length; i++) s += arr[i];
+    return s / arr.length;
+}
+function fmt(val, triggered) {
+    return (val >= 0 ? '+' : '') + val.toFixed(3) + (triggered ? ' ⚡' : '');
+}
+function upd(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+function drawDot(lm, W, H, color) {
+    ctx.beginPath();
+    ctx.arc(lm.x * W, lm.y * H, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+}
+</script>
+</body>
+</html>
