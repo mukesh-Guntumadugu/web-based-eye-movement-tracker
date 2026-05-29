@@ -1,0 +1,328 @@
+:root {
+    --bg-color: #0f172a;
+    --card-bg: rgba(30, 41, 59, 0.7);
+    --text-color: #f8fafc;
+    --text-muted: #94a3b8;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --secondary: #475569;
+    --secondary-hover: #334155;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 5vh;
+    background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+    overflow-x: hidden;
+}
+
+#app {
+    width: 100%;
+    max-width: 900px;
+    padding: 2rem;
+    z-index: 10;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+.status-badge.pending { background-color: rgba(234, 179, 8, 0.2); color: #facc15; }
+.status-badge.tracking { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.status-badge.stopped { background-color: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+
+.card {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.card h2 {
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.card p {
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+}
+
+ol {
+    margin-left: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-muted);
+}
+
+ol li {
+    margin-bottom: 0.5rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.primary-btn {
+    background-color: var(--primary);
+    color: white;
+    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
+}
+
+.primary-btn:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-2px);
+}
+
+.secondary-btn {
+    background-color: var(--secondary);
+    color: white;
+}
+
+.secondary-btn:hover {
+    background-color: var(--secondary-hover);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Reading Text Styles */
+#text-container {
+    background: rgba(15, 23, 42, 0.5);
+    padding: 2rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--glass-border);
+    font-size: 1.25rem;
+    line-height: 2;
+    margin-bottom: 2rem;
+    text-align: justify;
+}
+
+.word-token {
+    display: inline-block;
+    padding: 0 0.1rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+/* Optional: Highlight word when user looks at it (for debugging/effect) */
+.word-token.focused {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: #fff;
+}
+
+.controls {
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Penalty Overlay */
+#penalty-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(239, 68, 68, 0.9);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: flash 0.3s ease-in-out;
+}
+
+.penalty-message {
+    text-align: center;
+    background: white;
+    padding: 3rem;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    color: #1e293b;
+    transform: scale(1);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.penalty-message h1 {
+    background: none;
+    color: var(--danger);
+    -webkit-text-fill-color: initial;
+    margin-bottom: 1rem;
+    font-size: 2.5rem;
+}
+
+.penalty-message p {
+    font-size: 1.25rem;
+    color: #475569;
+}
+
+/* Summary Table */
+.stats-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-box {
+    background: rgba(15, 23, 42, 0.5);
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--glass-border);
+    flex: 1;
+    text-align: center;
+}
+
+.stat-box h3 {
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+#infraction-count {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--danger);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+th {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Calibration Dots */
+.calibration-dot {
+    position: fixed;
+    width: 30px;
+    height: 30px;
+    background-color: var(--danger);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 100;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 15px var(--danger);
+    transition: transform 0.2s;
+}
+
+.calibration-dot:hover {
+    transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* Animations */
+@keyframes flash {
+    0% { background-color: rgba(239, 68, 68, 0); }
+    50% { background-color: rgba(239, 68, 68, 0.9); }
+    100% { background-color: rgba(239, 68, 68, 0.9); }
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Force webgazer video element styling to look nice */
+#webgazerVideoContainer {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    border: 2px solid var(--primary) !important;
+}
+
+.typing-container {
+    margin-bottom: 2rem;
+    width: 100%;
+}
+
+#typing-input {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 1.25rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 2px solid var(--primary);
+    border-radius: 0.5rem;
+    color: var(--text-color);
+    outline: none;
+    transition: box-shadow 0.2s;
+}
+
+#typing-input:focus {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+}
+
+.char-token {
+    display: inline-block;
+    padding: 0;
+    margin: 0;
+    transition: color 0.1s, background-color 0.1s;
+}
+
+.char-token.correct {
+    color: var(--success);
+}
+
+.char-token.incorrect {
+    color: var(--danger);
+    background-color: rgba(239, 68, 68, 0.2);
+}
+
+.char-token.current {
+    border-bottom: 2px solid var(--primary);
+}
